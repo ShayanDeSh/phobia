@@ -11,7 +11,7 @@ def main():
       .drop(["date", "month", "location(latitude/lontitude)", "user id"],
             axis=1)\
       .assign(path=lambda x: apis[random.randint(0, len(apis) - 1)])\
-      .to_json("./data.json")
+      .to_json("./data.json", "records", indent=4)
 
 
 if __name__ == "__main__":
