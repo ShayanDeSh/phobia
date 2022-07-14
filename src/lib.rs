@@ -9,9 +9,8 @@ pub struct Record {
     start: u32,
     end: u32,
     #[serde(flatten)]
-    body: Body
+    body: Body,
 }
-
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "content-type", content = "body")]
@@ -23,5 +22,5 @@ pub enum Body {
     #[serde(rename(deserialize = "form"))]
     FORM,
     #[serde(rename(deserialize = "multipart"))]
-    MULTIPART{path: String}
+    MULTIPART { path: String },
 }

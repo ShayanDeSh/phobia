@@ -1,9 +1,9 @@
+use phobia::Record;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use structopt::StructOpt;
-use serde::{Deserialize, Serialize};
 use tracing::debug;
-use phobia::Record;
- 
+
 fn read_data(path: PathBuf) -> Result<Vec<Record>, phobia::Error> {
     let config_file = std::fs::File::open(path).ok();
     if let Some(file) = config_file {
@@ -45,7 +45,7 @@ mod tests {
     use crate::read_data;
 
     #[test]
-    fn test_read_data() -> Result<(), phobia::Error>{
+    fn test_read_data() -> Result<(), phobia::Error> {
         let data = read_data("./tests/data/test_data.json".into())?;
         println!("{:?}", data);
         assert_eq!(data.len(), 2);
