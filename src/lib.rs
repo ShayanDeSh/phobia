@@ -1,11 +1,14 @@
 use serde::Deserialize;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub mod generator;
+pub mod event;
 
 #[derive(Deserialize, Debug)]
 pub struct Record {
     method: String,
     host: String,
+    path: String,
     start: u32,
     end: u32,
     #[serde(flatten)]
