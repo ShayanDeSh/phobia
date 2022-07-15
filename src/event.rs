@@ -1,53 +1,59 @@
 use crate::Record;
+use std::borrow::Cow;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use std::borrow::Cow;
+use tokio::task::JoinHandle;
 
 pub struct Event {
-    host: String,
-    path: String,
-    body: crate::Body,
-    start: u32,
-    end: u32,
+    record: Record,
     step: usize,
     client: reqwest::Client,
+    joins: Vec<JoinHandle<()>>,
 }
 
 impl Event {
-    async fn run(&self) -> Result<(), crate::Error> {
-        match &self.body {
+    async fn run(&mut self) -> Result<(), crate::Error> {
+        match &self.record.body {
             crate::Body::MULTIPART { path } => {
                 let mut file = File::open(path).await?;
                 let mut contents = vec![];
                 file.read_to_end(&mut contents).await?;
-                let response = self.send_file(contents.into()).await?;
+                for _ in (self.record.start..self.record.end).step_by(self.step) {
+                    let c = contents.clone();
+                    let r = self.record.clone();
+                    let foo = tokio::spawn(async move {
+                        let response = Self::send_file(r, c.into()).await;
+                    });
+                    self.joins.push(foo);
+                }
             }
         }
-//        for start in (self.start..self.end).step_by(self.step) {
-//        }
         Ok(())
     }
 
-    async fn send_file(&self, buf: Cow<'static, [u8]>) 
-        -> Result<reqwest::Response, crate::Error> {
+    async fn send_file(
+        record: Record,
+        buf: Cow<'static, [u8]>,
+    ) -> Result<reqwest::Response, crate::Error> {
+        let client = reqwest::Client::new();
         let part = reqwest::multipart::Part::bytes(buf);
-        let form = reqwest::multipart::Form::new()
-            .part("file", part);
-        let response = self.client.post(format!("{}{}", self.host, self.path))
+        let form = reqwest::multipart::Form::new().part("file", part);
+        let response = client
+            .post(format!("{}{}", record.host, record.path))
             .multipart(form)
-            .send().await?;
+            .send()
+            .await?;
         Ok(response)
     }
 
-    pub fn new(record: Record, scale: u32, step: usize) -> Event {
+    pub fn new(mut record: Record, scale: u32, step: usize) -> Event {
+        record.start /= scale;
+        record.end /= scale;
         Event {
-            host: record.host,
-            path: record.path,
-            body: record.body,
-            start: record.start / scale,
-            end: record.end / scale,
-            step: step,
+            record: record,
+            step: step / scale as usize,
             client: reqwest::Client::new(),
+            joins: Vec::new(),
         }
     }
 }
@@ -71,14 +77,19 @@ mod tests {
             method: "POST".into(),
             host: server.base_url(),
             start: 0,
-            end: 2223000,
+            end: 2000,
             path: "/yolo/v2/predict".into(),
-            body: crate::Body::MULTIPART { path: "./tests/data/test_data.json".into() }
+            body: crate::Body::MULTIPART {
+                path: "./tests/data/test_data.json".into(),
+            },
         };
 
-        let event = Event::new(record, 20, 1000);
+        let mut event = Event::new(record, 20, 1000);
         event.run().await?;
-        mock.assert();
+        for join in event.joins.into_iter() {
+            tokio::join!(join);
+        }
+        mock.assert_hits(2);
         Ok(())
     }
 }
