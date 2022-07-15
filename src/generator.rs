@@ -1,5 +1,5 @@
-use crate::Record;
 use crate::event::Event;
+use crate::Record;
 use tokio::task::JoinHandle;
 
 pub struct Generator {
@@ -15,7 +15,10 @@ impl Generator {
             events.push(event);
         }
         events.sort();
-        Generator { events, joins: Vec::new() }
+        Generator {
+            events,
+            joins: Vec::new(),
+        }
     }
 
     pub async fn start(&mut self) -> Result<(), crate::Error> {
@@ -81,8 +84,8 @@ mod generator_tests {
                 path: "./tests/data/test_data.json".into(),
             },
         };
-        
-        let records = vec![record2.clone(), record3.clone(), record1.clone()];
+
+        let records = vec![record2, record3.clone(), record1];
         let generator = Generator::from_records(records, 1000, 1);
 
         assert!(generator.events.get(0).unwrap().record.end == record3.end);
@@ -128,7 +131,7 @@ mod generator_tests {
                 path: "./tests/data/test_data.json".into(),
             },
         };
-        
+
         let records = vec![record2, record3, record1];
         let mut generator = Generator::from_records(records, 1000, 20);
 

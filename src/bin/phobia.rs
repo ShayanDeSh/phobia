@@ -17,7 +17,7 @@ fn read_data(path: PathBuf) -> Result<Vec<Record>, phobia::Error> {
 async fn main() -> Result<(), phobia::Error> {
     tracing_subscriber::fmt::try_init()?;
 
-    let cmd = CMD::from_args();
+    let cmd = Cmd::from_args();
 
     debug!("{:?}", cmd);
     let data = read_data(cmd.path)?;
@@ -29,7 +29,7 @@ async fn main() -> Result<(), phobia::Error> {
 
 #[derive(StructOpt, Serialize, Deserialize, Debug)]
 #[structopt(name = "phobia")]
-struct CMD {
+struct Cmd {
     #[structopt(short, long)]
     concurency: u8,
     #[structopt(long)]

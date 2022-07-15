@@ -21,11 +21,11 @@ impl Event {
                 for _ in (self.record.start..self.record.end).step_by(self.step) {
                     let c = contents.clone();
                     let r = self.record.clone();
-                    let foo = tokio::spawn(async move {
+                    let join = tokio::spawn(async move {
                         let _response = Self::send_file(r, c.into()).await;
                     });
                     tokio::time::sleep(tokio::time::Duration::from_millis(self.step as u64)).await;
-                    self.joins.push(foo);
+                    self.joins.push(join);
                 }
             }
         }
@@ -90,7 +90,7 @@ impl PartialEq for Event {
 impl Eq for Event {}
 
 impl Clone for Event {
-    fn clone(&self) -> Self { 
+    fn clone(&self) -> Self {
         Event::new(self.record.clone(), self.scale, self.step);
         Event {
             record: self.record.clone(),
