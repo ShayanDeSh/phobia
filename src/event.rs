@@ -7,6 +7,7 @@ use tokio::task::JoinHandle;
 pub struct Event {
     pub record: Record,
     step: usize,
+    scale: u32,
     joins: Vec<JoinHandle<()>>,
 }
 
@@ -46,11 +47,19 @@ impl Event {
         Ok(response)
     }
 
+    pub async fn wait(self) -> Result<(), crate::Error> {
+        for join in self.joins.into_iter() {
+            tokio::join!(join).0?;
+        }
+        Ok(())
+    }
+
     pub fn new(mut record: Record, scale: u32, step: usize) -> Event {
         record.start /= scale;
         record.end /= scale;
         Event {
-            record: record,
+            record,
+            scale,
             step: step / scale as usize,
             joins: Vec::new(),
         }
@@ -80,6 +89,17 @@ impl PartialEq for Event {
 
 impl Eq for Event {}
 
+impl Clone for Event {
+    fn clone(&self) -> Self { 
+        Event::new(self.record.clone(), self.scale, self.step);
+        Event {
+            record: self.record.clone(),
+            scale: self.scale,
+            step: self.step,
+            joins: Vec::new(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -110,7 +130,7 @@ mod tests {
         let mut event = Event::new(record, 20, 1000);
         event.run().await?;
         for join in event.joins.into_iter() {
-            tokio::join!(join);
+            let _ = tokio::join!(join);
         }
         mock.assert_hits(2);
         Ok(())
