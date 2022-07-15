@@ -1,6 +1,7 @@
 use crate::Record;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+use std::borrow::Cow;
 
 pub struct Event {
     host: String,
@@ -16,7 +17,10 @@ impl Event {
     async fn run(&self) -> Result<(), crate::Error> {
         match &self.body {
             crate::Body::MULTIPART { path } => {
-                let response = self.send_file(path).await?;
+                let mut file = File::open(path).await?;
+                let mut contents = vec![];
+                file.read_to_end(&mut contents).await?;
+                let response = self.send_file(contents.into()).await?;
             }
         }
 //        for start in (self.start..self.end).step_by(self.step) {
@@ -24,12 +28,9 @@ impl Event {
         Ok(())
     }
 
-    async fn send_file(&self, file: &str) 
+    async fn send_file(&self, buf: Cow<'static, [u8]>) 
         -> Result<reqwest::Response, crate::Error> {
-        let mut file = File::open(file).await?;
-        let mut contents = vec![];
-        file.read_to_end(&mut contents).await?;
-        let part = reqwest::multipart::Part::bytes(contents);
+        let part = reqwest::multipart::Part::bytes(buf);
         let form = reqwest::multipart::Form::new()
             .part("file", part);
         let response = self.client.post(format!("{}{}", self.host, self.path))
@@ -76,11 +77,8 @@ mod tests {
         };
 
         let event = Event::new(record, 20, 1000);
-        let response = event.send_file("./tests/data/test_data.json".into())
-                            .await?;
-        println!("status: {:?}", response.status());
+        event.run().await?;
         mock.assert();
-        assert!(response.status() == reqwest::StatusCode::OK);
         Ok(())
     }
 }
