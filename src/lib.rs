@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
-pub mod generator;
 pub mod event;
+pub mod generator;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Record {
     method: String,
     host: String,
@@ -15,7 +15,7 @@ pub struct Record {
     body: Body,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "content-type", content = "body")]
 pub enum Body {
     #[cfg(__YES__)]
