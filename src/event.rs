@@ -22,8 +22,9 @@ impl Event {
                     let c = contents.clone();
                     let r = self.record.clone();
                     let foo = tokio::spawn(async move {
-                        let response = Self::send_file(r, c.into()).await;
+                        let _response = Self::send_file(r, c.into()).await;
                     });
+                    tokio::time::sleep(tokio::time::Duration::from_millis(self.step as u64)).await;
                     self.joins.push(foo);
                 }
             }
