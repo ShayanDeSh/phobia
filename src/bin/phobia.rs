@@ -1,3 +1,4 @@
+use phobia::generator::Generator;
 use phobia::Record;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,8 +22,9 @@ async fn main() -> Result<(), phobia::Error> {
 
     debug!("{:?}", cmd);
     let data = read_data(cmd.path)?;
-
-    debug!("{:?}", data);
+    let mut generator = Generator::from_records(data, cmd.step, cmd.scale);
+    generator.start().await?;
+    generator.wait().await?;
 
     Ok(())
 }
@@ -33,9 +35,9 @@ struct Cmd {
     #[structopt(short, long)]
     concurency: u8,
     #[structopt(long)]
-    scale: u8,
+    scale: u32,
     #[structopt(short, long)]
-    step: u32,
+    step: usize,
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 }
