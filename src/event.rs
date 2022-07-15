@@ -5,14 +5,13 @@ use tokio::io::AsyncReadExt;
 use tokio::task::JoinHandle;
 
 pub struct Event {
-    record: Record,
+    pub record: Record,
     step: usize,
-    client: reqwest::Client,
     joins: Vec<JoinHandle<()>>,
 }
 
 impl Event {
-    async fn run(&mut self) -> Result<(), crate::Error> {
+    pub async fn run(&mut self) -> Result<(), crate::Error> {
         match &self.record.body {
             crate::Body::MULTIPART { path } => {
                 let mut file = File::open(path).await?;
@@ -53,11 +52,34 @@ impl Event {
         Event {
             record: record,
             step: step / scale as usize,
-            client: reqwest::Client::new(),
             joins: Vec::new(),
         }
     }
 }
+
+impl Ord for Event {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.record.start == other.record.start {
+            return self.record.end.cmp(&other.record.end);
+        }
+        self.record.start.cmp(&other.record.start)
+    }
+}
+
+impl PartialOrd for Event {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Event {
+    fn eq(&self, other: &Self) -> bool {
+        self.record.start.eq(&other.record.start) && self.record.end.eq(&other.record.end)
+    }
+}
+
+impl Eq for Event {}
+
 
 #[cfg(test)]
 mod tests {
