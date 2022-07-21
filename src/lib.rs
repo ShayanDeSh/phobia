@@ -25,5 +25,5 @@ pub enum Body {
     #[serde(rename(deserialize = "form"))]
     FORM,
     #[serde(rename(deserialize = "multipart"))]
-    MULTIPART { path: String },
+    MULTIPART { path: String, name: String },
 }

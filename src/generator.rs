@@ -62,6 +62,7 @@ mod generator_tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
         let record2 = crate::Record {
@@ -72,6 +73,7 @@ mod generator_tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
         let record3 = crate::Record {
@@ -82,6 +84,7 @@ mod generator_tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
 
@@ -109,6 +112,7 @@ mod generator_tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
         let record2 = crate::Record {
@@ -119,6 +123,7 @@ mod generator_tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
         let record3 = crate::Record {
@@ -129,6 +134,7 @@ mod generator_tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
 

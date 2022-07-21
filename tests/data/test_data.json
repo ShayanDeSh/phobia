@@ -7,7 +7,8 @@
         "path":"\/yolo\/v2\/predict",
         "content-type": "multipart",
         "body": {
-            "path": "./somefile"
+            "path": "./somefile",
+            "name": "file"
         }
     },
     {
@@ -18,7 +19,8 @@
         "method":"POST",
         "content-type": "multipart",
         "body": {
-            "path": "./somefile"
+            "path": "./somefile",
+            "name": "file"
         }
     }
 ]

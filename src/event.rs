@@ -1,4 +1,5 @@
 use crate::Record;
+use reqwest::Method;
 use std::borrow::Cow;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
@@ -14,15 +15,22 @@ pub struct Event {
 impl Event {
     pub async fn run(&mut self) -> Result<(), crate::Error> {
         match &self.record.body {
-            crate::Body::MULTIPART { path } => {
+            crate::Body::MULTIPART { path, name } => {
                 let mut file = File::open(path).await?;
                 let mut contents = vec![];
                 file.read_to_end(&mut contents).await?;
                 for _ in (self.record.start..self.record.end).step_by(self.step) {
                     let c = contents.clone();
                     let r = self.record.clone();
+                    let n = name.clone();
                     let join = tokio::spawn(async move {
-                        let _response = Self::send_file(r, c.into()).await;
+                        let _response = Self::send_file(
+                            r.method,
+                            format!("{:}{:}", r.host, r.path),
+                            n,
+                            c.into(),
+                        )
+                        .await;
                     });
                     tokio::time::sleep(tokio::time::Duration::from_millis(self.step as u64)).await;
                     self.joins.push(join);
@@ -33,14 +41,16 @@ impl Event {
     }
 
     async fn send_file(
-        record: Record,
+        method: String,
+        url: String,
+        name: String,
         buf: Cow<'static, [u8]>,
     ) -> Result<reqwest::Response, crate::Error> {
         let client = reqwest::Client::new();
         let part = reqwest::multipart::Part::bytes(buf);
-        let form = reqwest::multipart::Form::new().part("file", part);
+        let form = reqwest::multipart::Form::new().part(name, part);
         let response = client
-            .post(format!("{}{}", record.host, record.path))
+            .request(Method::from_bytes(method.as_bytes())?, url)
             .multipart(form)
             .send()
             .await?;
@@ -124,6 +134,7 @@ mod tests {
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
                 path: "./tests/data/test_data.json".into(),
+                name: "file".into(),
             },
         };
 
