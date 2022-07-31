@@ -61,21 +61,21 @@ mod generator_tests {
             method: "POST".into(),
             host: "http://localhost".into(),
             start: 0,
-            end: 2000,
+            end: 2,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path: "./tests/data/test_data.json".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
         let record2 = crate::Record {
             method: "POST".into(),
             host: "http://localhost".into(),
-            start: 1000,
-            end: 2000,
+            start: 1,
+            end: 2,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path: "./tests/data/test_data.json".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
@@ -83,16 +83,16 @@ mod generator_tests {
             method: "POST".into(),
             host: "http://localhost".into(),
             start: 0,
-            end: 1000,
+            end: 1,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path: "./tests/data/test_data.json".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
 
         let records = vec![record2, record3.clone(), record1];
-        let generator = Generator::from_records(records, 1000, 1);
+        let generator = Generator::from_records(records, 1, 1);
 
         assert!(generator.events.get(0).unwrap().record.end == record3.end);
     }
@@ -111,21 +111,21 @@ mod generator_tests {
             method: "POST".into(),
             host: server.base_url(),
             start: 0,
-            end: 2000,
+            end: 8,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path: "./tests/data/test_data.json".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
         let record2 = crate::Record {
             method: "POST".into(),
             host: server.base_url(),
-            start: 1000,
-            end: 2000,
+            start: 2,
+            end: 4,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path: "./tests/data/test_data.json".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
@@ -133,21 +133,21 @@ mod generator_tests {
             method: "POST".into(),
             host: server.base_url(),
             start: 0,
-            end: 1000,
+            end: 8,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path: "./tests/data/test_data.json".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
 
         let records = vec![record2, record3, record1];
-        let mut generator = Generator::from_records(records, 1000, 20);
+        let mut generator = Generator::from_records(records, 2, 2);
 
         generator.start().await?;
         generator.wait().await?;
 
-        mock.assert_hits(4);
+        mock.assert_hits(9);
         Ok(())
     }
 }

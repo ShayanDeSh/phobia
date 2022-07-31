@@ -1,0 +1,18 @@
+- method: POST
+  host: http://localhost
+  start: 0
+  end: 2223000
+  path: "/yolo/v2/predict"
+  content-type: multipart
+  body:
+    path: "./somefile"
+    name: file
+- host: http://localhost
+  start: 0
+  end: 2868000
+  path: "/yolo/v2/predict"
+  method: POST
+  content-type: multipart
+  body:
+    path: "./somefile"
+    name: file

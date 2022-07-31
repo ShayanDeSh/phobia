@@ -8,7 +8,7 @@ use tracing::debug;
 fn read_data(path: PathBuf) -> Result<Vec<Record>, phobia::Error> {
     let config_file = std::fs::File::open(path).ok();
     if let Some(file) = config_file {
-        let config = serde_json::from_reader(file)?;
+        let config = serde_yaml::from_reader(file)?;
         return Ok(config);
     }
     Err("Could not open file".into())
@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn test_read_data() -> Result<(), phobia::Error> {
-        let data = read_data("./tests/data/test_data.json".into())?;
+        let data = read_data("./tests/data/test_data.yaml".into())?;
         println!("{:?}", data);
         assert_eq!(data.len(), 2);
         Ok(())

@@ -50,6 +50,7 @@ impl Event {
                 }
             }
         }
+        println!("returning");
         Ok(())
     }
 
@@ -145,20 +146,20 @@ mod tests {
             method: "POST".into(),
             host: server.base_url(),
             start: 0,
-            end: 2000,
+            end: 8,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path:"./tests/data/test_data.json".into(),
+                path:"./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };
 
-        let mut event = Event::new(record, 20, 1000);
+        let mut event = Event::new(record, 2, 2);
         event.run().await?;
         for join in event.joins.into_iter() {
             let _ = tokio::join!(join);
         }
-        mock.assert_hits(2);
+        mock.assert_hits(4);
         Ok(())
     }
 }
