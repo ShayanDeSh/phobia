@@ -14,17 +14,23 @@ fn read_data(path: PathBuf) -> Result<Vec<Record>, phobia::Error> {
     Err("Could not open file".into())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), phobia::Error> {
-    tracing_subscriber::fmt::try_init()?;
 
+fn main() -> Result<(), phobia::Error> {
     let cmd = Cmd::from_args();
 
     debug!("{:?}", cmd);
     let data = read_data(cmd.path)?;
     let mut generator = Generator::from_records(data, cmd.step, cmd.scale);
-    generator.start().await?;
-    generator.wait().await?;
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(cmd.concurency)
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            tracing_subscriber::fmt::try_init().expect("Could not initialize subscriber");
+            generator.start().await.expect("Could not start generator.");
+            generator.wait().await.expect("Waiting on generator threads failed");
+        });
 
     Ok(())
 }
@@ -33,7 +39,7 @@ async fn main() -> Result<(), phobia::Error> {
 #[structopt(name = "phobia")]
 struct Cmd {
     #[structopt(short, long)]
-    concurency: u8,
+    concurency: usize,
     #[structopt(long)]
     scale: u32,
     #[structopt(short, long)]
