@@ -33,9 +33,8 @@ impl Generator {
                 current = event.record.start;
             }
             let join = tokio::spawn(async move {
-                let _ = event.run().await;
                 info!("Generator starting event: {:?}", event);
-                let _ = event.wait().await;
+                let _ = event.run().await;
             });
             self.joins.push(join);
         }

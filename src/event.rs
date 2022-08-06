@@ -1,6 +1,7 @@
 use crate::Record;
 use reqwest::Method;
 use std::borrow::Cow;
+use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::task::JoinHandle;
@@ -12,6 +13,7 @@ pub struct Event {
     step: usize,
     scale: u32,
     joins: Vec<JoinHandle<()>>,
+    contents: &'static mut Vec<u8>,
 }
 
 impl Event {
@@ -42,7 +44,7 @@ impl Event {
                         .await;
                         match response {
                             Ok(resp) => info!("Status of {:?}: {}", r, resp.status()),
-                            Err(err) => info!("Error with step {step} of {:?}: {err}", r)
+                            Err(err) => info!("Error with step {step} of {:?}: {err}", r),
                         }
                     });
                     tokio::time::sleep(tokio::time::Duration::from_secs(self.step as u64)).await;
@@ -54,19 +56,89 @@ impl Event {
         Ok(())
     }
 
+    pub async fn run_unsafe(self: Arc<&'static Self>) -> Result<(), crate::Error> {
+        let foo = self.clone();
+        match &foo.record.body {
+            crate::Body::MULTIPART { ref path, name } => {
+                let filename = path.rsplit_once("/").unwrap_or(("", path)).1.to_string();
+                let mut file = File::open(path).await?;
+
+                unsafe {
+                    let a = *self.clone().as_ref() as *const Event as *mut Event;
+                    file.read_to_end((*a).contents).await?;
+                }
+
+                let mime_type =
+                    infer::get(self.contents).map_or("text/plain", |mime| mime.mime_type());
+
+                for step in (self.record.start..self.record.end).step_by(self.step) {
+                    let n = name.clone().into();
+                    let f = filename.clone();
+                    info!("Step {step} of {:?}", self.record);
+                    let move_self = self.clone();
+                    let join = tokio::spawn(async move {
+                        let response = move_self.send_multipart(n, f.into(), mime_type).await;
+                        match response {
+                            Ok(resp) => {
+                                info!("Status of {:?}: {}", move_self.record, resp.status())
+                            }
+                            Err(err) => {
+                                info!("Error with step {step} of {:?}: {err}", move_self.record)
+                            }
+                        }
+                    });
+                    tokio::time::sleep(tokio::time::Duration::from_secs(self.step as u64)).await;
+
+                    unsafe {
+                        let x = *self.clone().as_ref() as *const Event as *mut Event;
+                        (*x).joins.push(join);
+                    }
+                }
+            }
+        }
+        println!("returning");
+        Ok(())
+    }
+
     async fn send_file(
         method: String,
         url: String,
         name: String,
-        mime_type: String, 
+        mime_type: String,
         filename: String,
         buf: Cow<'static, [u8]>,
     ) -> Result<reqwest::Response, crate::Error> {
         let client = reqwest::Client::new();
-        let part = reqwest::multipart::Part::bytes(buf).file_name(filename).mime_str(&mime_type)?;
+        let part = reqwest::multipart::Part::bytes(buf)
+            .file_name(filename)
+            .mime_str(&mime_type)?;
         let form = reqwest::multipart::Form::new().part(name, part);
         let response = client
             .request(Method::from_bytes(method.as_bytes())?, url)
+            .multipart(form)
+            .send()
+            .await?;
+        Ok(response)
+    }
+
+    async fn send_multipart(
+        &'static self,
+        name: Cow<'static, str>,
+        filename: Cow<'static, str>,
+        mime_type: &str,
+    ) -> Result<reqwest::Response, crate::Error> {
+        let client = reqwest::Client::new();
+        let buf: &Vec<u8> = self.contents.as_ref();
+        let buf: Cow<'static, [u8]> = buf.into();
+        let part = reqwest::multipart::Part::bytes(buf)
+            .file_name(filename)
+            .mime_str(&mime_type)?;
+        let form = reqwest::multipart::Form::new().part(name, part);
+        let response = client
+            .request(
+                Method::from_bytes(self.record.method.as_bytes())?,
+                self.record.host.clone(),
+            )
             .multipart(form)
             .send()
             .await?;
@@ -81,13 +153,17 @@ impl Event {
     }
 
     pub fn new(mut record: Record, scale: u32, step: usize) -> Event {
+        static mut CONTENTS: Vec<u8> = vec![];
         record.start /= scale;
         record.end /= scale;
-        Event {
-            record,
-            scale,
-            step: step / scale as usize,
-            joins: Vec::new(),
+        unsafe {
+            Event {
+                record,
+                scale,
+                step: step / scale as usize,
+                joins: Vec::new(),
+                contents: &mut CONTENTS,
+            }
         }
     }
 }
@@ -117,13 +193,7 @@ impl Eq for Event {}
 
 impl Clone for Event {
     fn clone(&self) -> Self {
-        Event::new(self.record.clone(), self.scale, self.step);
-        Event {
-            record: self.record.clone(),
-            scale: self.scale,
-            step: self.step,
-            joins: Vec::new(),
-        }
+        Event::new(self.record.clone(), self.scale, self.step)
     }
 }
 
@@ -149,7 +219,7 @@ mod tests {
             end: 8,
             path: "/yolo/v2/predict".into(),
             body: crate::Body::MULTIPART {
-                path:"./tests/data/test_data.yaml".into(),
+                path: "./tests/data/test_data.yaml".into(),
                 name: "file".into(),
             },
         };

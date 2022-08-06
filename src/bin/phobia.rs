@@ -14,7 +14,6 @@ fn read_data(path: PathBuf) -> Result<Vec<Record>, phobia::Error> {
     Err("Could not open file".into())
 }
 
-
 fn main() -> Result<(), phobia::Error> {
     let cmd = Cmd::from_args();
 
@@ -29,7 +28,10 @@ fn main() -> Result<(), phobia::Error> {
         .block_on(async {
             tracing_subscriber::fmt::try_init().expect("Could not initialize subscriber");
             generator.start().await.expect("Could not start generator.");
-            generator.wait().await.expect("Waiting on generator threads failed");
+            generator
+                .wait()
+                .await
+                .expect("Waiting on generator threads failed");
         });
 
     Ok(())
