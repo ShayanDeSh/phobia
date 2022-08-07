@@ -6,6 +6,8 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::task::JoinHandle;
 use tracing::info;
+use std::fs;
+use std::io::Read;
 
 #[derive(Debug)]
 pub struct Event {
@@ -14,6 +16,7 @@ pub struct Event {
     scale: u32,
     joins: Vec<JoinHandle<()>>,
     contents: &'static mut Vec<u8>,
+    contents_leak: Option<Arc<&'static [u8]>>
 }
 
 impl Event {
@@ -56,16 +59,56 @@ impl Event {
         Ok(())
     }
 
+    pub async fn run_leak(&mut self) -> Result<(), crate::Error> {
+        match &self.record.body {
+            crate::Body::MULTIPART { path, name } => {
+                let filename = path.rsplit_once("/").unwrap_or(("", path)).1;
+                let mut file = File::open(path).await?;
+                let mut contents = vec![];
+                file.read_to_end(&mut contents).await?;
+                let contents: Arc<&'static [u8]> = Arc::new(Box::leak(contents.into_boxed_slice()));
+                self.contents_leak = Some(contents.clone());
+                let mime_type = infer::get(&contents).map_or("text/plain", |mime| mime.mime_type());
+                for step in (self.record.start..self.record.end).step_by(self.step) {
+                    let r = self.record.clone();
+                    let n = name.clone();
+                    let c = contents.clone();
+                    let m = mime_type.to_string();
+                    let f = filename.to_string();
+                    info!("Step {step} of {:?}", r);
+                    let join = tokio::spawn(async move {
+                        let response = Self::send_file_leak(
+                            r.method.clone(),
+                            format!("{:}{:}", r.host, r.path),
+                            n,
+                            m.into(),
+                            f.into(),
+                            c
+                        )
+                        .await;
+                        match response {
+                            Ok(resp) => info!("Status of {:?}: {}", r, resp.status()),
+                            Err(err) => info!("Error with step {step} of {:?}: {err}", r),
+                        }
+                    });
+                    tokio::time::sleep(tokio::time::Duration::from_secs(self.step as u64)).await;
+                    self.joins.push(join);
+                }
+            }
+        }
+        println!("returning");
+        Ok(())
+    }
+
     pub async fn run_unsafe(self: Arc<&'static Self>) -> Result<(), crate::Error> {
         let foo = self.clone();
         match &foo.record.body {
             crate::Body::MULTIPART { ref path, name } => {
                 let filename = path.rsplit_once("/").unwrap_or(("", path)).1.to_string();
-                let mut file = File::open(path).await?;
-
+                let mut file = fs::File::open(path)?;
                 unsafe {
                     let a = *self.clone().as_ref() as *const Event as *mut Event;
-                    file.read_to_end((*a).contents).await?;
+                    file.read_to_end((*a).contents)?;
                 }
 
                 let mime_type =
@@ -121,6 +164,27 @@ impl Event {
         Ok(response)
     }
 
+    async fn send_file_leak(
+        method: String,
+        url: String,
+        name: String,
+        mime_type: String,
+        filename: String,
+        buf: Arc<&'static [u8]>,
+    ) -> Result<reqwest::Response, crate::Error> {
+        let client = reqwest::Client::new();
+        let part = reqwest::multipart::Part::bytes(*buf.as_ref())
+            .file_name(filename)
+            .mime_str(&mime_type)?;
+        let form = reqwest::multipart::Form::new().part(name, part);
+        let response = client
+            .request(Method::from_bytes(method.as_bytes())?, url)
+            .multipart(form)
+            .send()
+            .await?;
+        Ok(response)
+    }
+
     async fn send_multipart(
         &'static self,
         name: Cow<'static, str>,
@@ -149,6 +213,11 @@ impl Event {
         for join in self.joins.into_iter() {
             tokio::join!(join).0?;
         }
+        if let Some(v) = self.contents_leak {
+            unsafe {
+                Box::from_raw(v.as_ptr() as *mut u8);
+            }
+        }
         Ok(())
     }
 
@@ -163,6 +232,7 @@ impl Event {
                 step: step / scale as usize,
                 joins: Vec::new(),
                 contents: &mut CONTENTS,
+                contents_leak: None
             }
         }
     }

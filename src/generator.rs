@@ -42,6 +42,29 @@ impl Generator {
         Ok(())
     }
 
+    pub async fn start_unsafe(&'static mut self) -> Result<(), crate::Error> {
+        info!("Get ready to face your phobia :))");
+        let mut current: u32 = 0;
+        for event in self.events.iter() {
+            if current < event.record.start {
+                let delay = (event.record.start - current) as u64;
+                let duration = tokio::time::Duration::from_secs(delay);
+                tokio::time::sleep(duration).await;
+                current = event.record.start;
+            }
+            let event = Arc::new(event);
+            let join = tokio::spawn(async move {
+                info!("Generator starting event: {:?}", event); 
+                match event.clone().run_unsafe().await {
+                    Ok(_) => (),
+                    Err(err) => info!("{:?} failed because {err}", event),
+                }
+            });
+            self.joins.push(join);
+        }
+        Ok(())
+    }
+
     pub async fn start_leak(&mut self) -> Result<(), crate::Error> {
         info!("Get ready to face your phobia :))");
         let mut current: u32 = 0;
