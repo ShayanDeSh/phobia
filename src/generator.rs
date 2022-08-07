@@ -2,6 +2,7 @@ use crate::event::Event;
 use crate::Record;
 use tokio::task::JoinHandle;
 use tracing::info;
+use std::sync::Arc;
 
 pub struct Generator {
     events: Vec<Event>,
@@ -35,6 +36,25 @@ impl Generator {
             let join = tokio::spawn(async move {
                 info!("Generator starting event: {:?}", event);
                 let _ = event.run().await;
+            });
+            self.joins.push(join);
+        }
+        Ok(())
+    }
+
+    pub async fn start_leak(&mut self) -> Result<(), crate::Error> {
+        info!("Get ready to face your phobia :))");
+        let mut current: u32 = 0;
+        for mut event in self.events.clone().into_iter() {
+            if current < event.record.start {
+                let delay = (event.record.start - current) as u64;
+                let duration = tokio::time::Duration::from_secs(delay);
+                tokio::time::sleep(duration).await;
+                current = event.record.start;
+            }
+            let join = tokio::spawn(async move {
+                info!("Generator starting event: {:?}", event);
+                let _ = event.run_leak().await;
             });
             self.joins.push(join);
         }
