@@ -12,8 +12,10 @@ pub struct Generator {
 impl Generator {
     pub fn from_records(records: Vec<Record>, step: usize, scale: u32) -> Generator {
         let mut events = Vec::new();
-        for record in records.into_iter() {
-            let event = Event::new(record, scale, step);
+        for mut record in records.into_iter() {
+            record.start /= scale;
+            record.end /= scale;
+            let event = Event::new(record, step / scale as usize);
             events.push(event);
         }
         events.sort();

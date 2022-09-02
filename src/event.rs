@@ -13,7 +13,6 @@ use std::io::Read;
 pub struct Event {
     pub record: Record,
     step: usize,
-    scale: u32,
     joins: Vec<JoinHandle<()>>,
     contents: &'static mut Vec<u8>,
     contents_leak: Option<Arc<&'static [u8]>>
@@ -55,7 +54,6 @@ impl Event {
                 }
             }
         }
-        println!("returning");
         Ok(())
     }
 
@@ -96,7 +94,6 @@ impl Event {
                 }
             }
         }
-        println!("returning");
         Ok(())
     }
 
@@ -139,7 +136,6 @@ impl Event {
                 }
             }
         }
-        println!("returning");
         Ok(())
     }
 
@@ -221,15 +217,12 @@ impl Event {
         Ok(())
     }
 
-    pub fn new(mut record: Record, scale: u32, step: usize) -> Event {
+    pub fn new(record: Record, step: usize) -> Event {
         static mut CONTENTS: Vec<u8> = vec![];
-        record.start /= scale;
-        record.end /= scale;
         unsafe {
             Event {
                 record,
-                scale,
-                step: step / scale as usize,
+                step: step as usize,
                 joins: Vec::new(),
                 contents: &mut CONTENTS,
                 contents_leak: None
@@ -263,7 +256,7 @@ impl Eq for Event {}
 
 impl Clone for Event {
     fn clone(&self) -> Self {
-        Event::new(self.record.clone(), self.scale, self.step)
+        Event::new(self.record.clone(), self.step)
     }
 }
 
@@ -294,7 +287,7 @@ mod tests {
             },
         };
 
-        let mut event = Event::new(record, 2, 2);
+        let mut event = Event::new(record, 2);
         event.run().await?;
         for join in event.joins.into_iter() {
             let _ = tokio::join!(join);
